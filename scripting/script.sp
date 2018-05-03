@@ -1,2 +1,0 @@
-#pragma semicolon
-#include <sourcemod>
