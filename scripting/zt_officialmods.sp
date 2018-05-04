@@ -28,6 +28,18 @@ List of the current weapons this plugin mods and in what form:
 	-Phlogistinator
 		-Is now the only flamethrower that inflicts the healing debuff
 		-Phlog crits replaced with instant health restoration and temporary damage resistance
+		
+	-Enforcer
+		-Now deals bonus damage based on cloak meter, up to 30% more damage at full meter
+		-Dealing damage drains little bits of cloak depending on bonus damage dealt
+		-On kill: Cloak lost is restored completely
+		-Firing stops cloak regen for 1s
+		-Still retains slower firing speed
+		
+	-L'Etranger
+		-50% of damage dealt is returned as cloak
+		-This feature makes cloak restoration range between 8% and 24%, allowing for more overall cloak restoration.
+		
 */
 
 public Plugin myinfo = {
@@ -52,7 +64,7 @@ public OnPluginStart() {
 public void OnClientPutInServer(client)
 {
 	SDKHook(client, SDKHook_OnTakeDamage, OnTakeDamage);
-	//SDKHook(client, SDKHook_OnTakeDamageAlive, OnTakeDamageAlive);
+	SDKHook(client, SDKHook_OnTakeDamageAlive, OnTakeDamageAlive);
 	SDKHook(client, SDKHook_PreThink, OnClientPreThink);
 }
 
@@ -99,6 +111,20 @@ public Action:OnTakeDamage(victim, &attacker, &inflictor, &Float:damage, &damage
 		}
 	}
 	return action;
+}
+
+public OnTakeDamageAlive(victim, attacker, inflictor, Float:damage, damagetype, weapon)
+{
+	if(TF2_GetPlayerClass(attacker) == TFClass_Spy)
+	{
+		if(GetWeaponIndex(weapon) == 224) //L'Etranger
+		{
+			new Float:cloak = GetEntPropFloat(attacker, Prop_Send, "m_flCloakMeter");
+			cloak += damage * 0.5;
+			if(cloak > 100.0) cloak = 100.0;
+			SetEntPropFloat(attacker, Prop_Send, "m_flCloakMeter", cloak);
+		}
+	}
 }
 
 public Action:OnClientPreThink(client)
