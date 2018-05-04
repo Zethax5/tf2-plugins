@@ -28,7 +28,6 @@ List of the current weapons this plugin mods and in what form:
 	-Phlogistinator
 		-Is now the only flamethrower that inflicts the healing debuff
 		-Phlog crits replaced with instant health restoration and temporary damage resistance
-		-Airblast re-added: now functions like the Pre-Blue-Moon Short Circuit
 */
 
 public Plugin myinfo = {
@@ -132,16 +131,39 @@ public Action:OnClientPreThink(client)
 		
 		if(TF2_GetPlayerClass(client) == TFClass_Pyro)
 		{
-			if(TF2_IsPlayerInCondition(client, TFCond:52) && TF2_IsPlayerInCondition(client, TFCond:44)) //If Phlog crits are added to the client
+			if(TF2_IsPlayerInCondition(client, TFCond:52)) //If Phlog crits are added to the client
 			{
 				SetEntityHealth(client, GetClientMaxHealth(client)); //Fills the player's health to full
-				TF2_AddCondition(client, TFCond:45, 8.0); //Gives the player some temporary damage resistance
+				TF2_AddCondition(client, TFCond:45, 10.0); //Gives the player some temporary damage resistance
 			}
-			TF2_RemoveCondition(client, TFCond:44); //Removes the crit effect given by the Phlogistinator, because the Phlog gives special crits or something
 		}
 		
 		LastTick[client] = GetEngineTime(); //Resets the delay
 	}
 	
 	return action;
+}
+
+public TF2_OnConditionAdded(client, TFCond:cond)
+{
+	if(cond == TFCond:44)
+	{
+		TF2_RemoveCondition(client, TFCond:44);
+	}
+}
+
+//Checks if the client is connected, alive, and a valid client
+//@param client			The target client
+//@param replaycheck	Check if the target is SourceTV or Replay
+stock bool:IsValidClient(client, bool:replaycheck = true)
+{
+    if(client <= 0 || client > MaxClients) return false;
+    if(!IsClientInGame(client)) return false;
+    if(!IsClientConnected(client)) return false;
+    if(GetEntProp(client, Prop_Send, "m_bIsCoaching")) return false;
+    if(replaycheck)
+    {
+        if(IsClientSourceTV(client) || IsClientReplay(client)) return false;
+    }
+    return true;
 }
