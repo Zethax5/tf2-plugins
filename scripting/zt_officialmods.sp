@@ -110,6 +110,18 @@ public Action:OnTakeDamage(victim, &attacker, &inflictor, &Float:damage, &damage
 			TF2_RemoveCondition(victim, TFCond:118); //Remove the healing debuff
 		}
 	}
+	if(TF2_GetPlayerClass(attacker) == TFClass_Spy)
+	{
+		if(GetWeaponIndex(weapon) == 460) //The Enforcer
+		{
+			new Float:cloakbonus = GetEntPropFloat(attacker, Prop_Send, "m_flCloakMeter") * 0.3;
+			damage *= 1.0 + cloakbonus;
+			
+			new Float:cloak = GetEntPropFloat(attacker, Prop_Send, "m_flCloakMeter") - (cloakbonus / 2);
+			if(cloak < 0.0) cloak = 0.0;
+			SetEntPropFloat(attacker, Prop_Send, "m_flCloakMeter", cloak);
+		}
+	}
 	return action;
 }
 
