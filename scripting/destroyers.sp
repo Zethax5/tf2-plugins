@@ -181,15 +181,8 @@ new bool:KnifeEffectsOnKill[2049];
 new KnifeEffectsOnKill_KnifeID[2049];
 new bool:KnifeEffectsOnKill_DisableKnife[2049];
 
-//JOKE ATTRIBUTES
-new bool:MannsMeat[2049];
-new bool:MannsMeat_DamageMarked[MAXPLAYERS + 1];
-new bool:MannsMeat_DeathMarked[MAXPLAYERS + 1];
-new bool:MannsMeat_SpeedMarked[MAXPLAYERS + 1];
-new bool:MannsMeat_Marked[MAXPLAYERS + 1];
-new bool:MannsMeat_Marked2[MAXPLAYERS + 1];
-new MannsMeat_SpeedInflictor[MAXPLAYERS + 1];
-new MannsMeat_MarkInflictor[MAXPLAYERS + 1];
+//Base values for ResistWhileAiming
+new Float:ResistWhileAiming[2049];
 
 //Additional values that might get used later on other attributes
 new Float:OriginalDamage[MAXPLAYERS + 1];
@@ -216,7 +209,7 @@ public OnPluginStart() { //2-1
 }
 public OnMapStart()
 {
-	PrecacheSound("weapons/minigun_spin.wav", true);
+	//PrecacheSound("weapons/minigun_spin.wav", true);
 }
 public OnClientPutInServer(client) //2-3
 {
@@ -510,9 +503,9 @@ public Action:CW3_OnAddAttribute(slot, client, const String:attrib[], const Stri
 		
 		action = Plugin_Handled;
 	}
-	else if(StrEqual(attrib, "manns meat attrib"))
+	else if(StrEqual(attrib, "damage resistance while aiming"))
 	{
-		MannsMeat[weapon] = true;
+		ResistWhileAiming[weapon] = StringToFloat(value);
 		action = Plugin_Handled;
 	}
 	
@@ -614,54 +607,10 @@ public Action:OnTakeDamage(victim, &attacker, &inflictor, &Float:damage, &damage
 		{
 			TF2_RemoveCondition(victim, TFCond_OnFire);
 		}
-		
-		if(MannsMeat_DeathMarked[victim])
+		if(ResistWhileAiming[GetActiveWeapon(victim)] && TF2_IsPlayerInCondition(victim, TFCond:0))
 		{
-			damagetype = TF_DMG_CRIT | damagetype;
-			MannsMeat_DeathMarked[victim] = false;
+			damage *= ResistWhileAiming[GetActiveWeapon(victim)];
 			action = Plugin_Changed;
-		}
-		if(MannsMeat[weapon])
-		{
-			new critchances = 1;
-			
-			if(TF2_IsPlayerInCondition(victim, TFCond:123))
-			{
-				damage *= 2.0;
-				critchances++;
-				action = Plugin_Changed;
-			}
-			if(TF2_IsPlayerInCondition(attacker, TFCond:125))
-			{
-				damage *= 2.0;
-				critchances++;
-				action = Plugin_Changed;
-			}
-			if(MannsMeat_Marked[victim] && MannsMeat_MarkInflictor[victim] == attacker)
-			{
-				damage *= 2.0;
-				critchances++;
-				MannsMeat_Marked[victim] = false;
-				action = Plugin_Changed;
-			}
-			if(MannsMeat_Marked2[victim] && MannsMeat_MarkInflictor[victim] == attacker)
-			{
-				damage *= 2.0;
-				critchances++;
-				MannsMeat_Marked2[victim] = false;
-				action = Plugin_Changed;
-			}
-			new crit = GetRandomInt(1, 10);
-			if(critchances >= crit)
-			{
-				damagetype = TF_DMG_CRIT | damagetype;
-				action = Plugin_Changed;
-			}
-		}
-		if(MannsMeat_DamageMarked[victim])
-		{
-			TF2_AddCondition(victim, TFCond_MarkedForDeathSilent, 0.1);
-			MannsMeat_DamageMarked[victim] = false;
 		}
 	}
 	
@@ -732,27 +681,6 @@ public Action:OnTakeDamageAlive(victim, &attacker, &inflictor, &Float:damage, &d
 		{
 			CozyMeter_Charge[weapon] += damage;
 			if (CozyMeter_Charge[weapon] > CozyMeter_MaxCharge[weapon])CozyMeter_Charge[weapon] = CozyMeter_MaxCharge[weapon];
-		}
-		
-		//JOKE ATTRIBUTE
-		if(MannsMeat[GetPlayerWeaponSlot(victim, 2)])
-		{
-			MannsMeat_DamageMarked[attacker] = true;
-		}
-		if(MannsMeat[GetPlayerWeaponSlot(attacker, 2)] && weapon == GetPlayerWeaponSlot(attacker, 0))
-		{
-			MannsMeat_Marked[victim] = true;
-			MannsMeat_MarkInflictor[victim] = attacker;
-		}
-		if(MannsMeat[GetPlayerWeaponSlot(attacker, 2)] && weapon == GetPlayerWeaponSlot(attacker, 1))
-		{
-			MannsMeat_Marked2[attacker] = true;
-			MannsMeat_MarkInflictor[victim] = attacker;
-		}
-		if(MannsMeat[weapon])
-		{
-			MannsMeat_SpeedMarked[victim] = true;
-			MannsMeat_SpeedInflictor[victim] = attacker;
 		}
 	}
 	return action;
@@ -830,77 +758,7 @@ public Action:Event_Death(Handle:event, const String:name[], bool:dontBroadcast)
 			Hellfire_Igniter[victim] = -1;
 			Hellfire[victim] = false;
 		}
-		
-		if(MannsMeat[GetPlayerWeaponSlot(victim, 2)])
-		{
-			MannsMeat_DeathMarked[attacker] = true;
-		}
-		
-		if(KnifeEffectsOnKill[weapon])
-		{
-			if(GetPlayerWeaponSlot(attacker, 2) > -1)
-			{
-				new iItemIndex = KnifeEffectsOnKill_KnifeID[weapon];
-				
-				if(iItemIndex == 225 || iItemIndex == 574) //Your Eternal Reward/Wanga Prick
-				{
-					//Oh god, I didn't expect this to take so long
-					
-					//Starts the disguise process
-					TF2_DisguisePlayer(attacker, TFTeam:TF2_GetClientTeam(victim), TFClassType:TF2_GetPlayerClass(victim), victim);
-					
-					//Sets ALL of the variables needed to disguise the attacker
-					SetEntProp(attacker, Prop_Send, "m_nMaskClass", TF2_GetPlayerClass(victim));
-					SetEntProp(attacker, Prop_Send, "m_nDisguiseClass", TF2_GetPlayerClass(victim));
-					SetEntProp(attacker, Prop_Send, "m_nDesiredDisguiseClass", TF2_GetPlayerClass(victim));
-					SetEntProp(attacker, Prop_Send, "m_nDisguiseTeam", TF2_GetClientTeam(victim));
-					SetEntProp(attacker, Prop_Send, "m_iDisguiseTargetIndex", victim);
-					SetEntProp(attacker, Prop_Send, "m_iDisguiseHealth", GetClientHealth(attacker));
-					
-					//Finishes it all up
-					TF2_AddCondition(attacker, TFCond_Disguised);
-				}
-				else if(iItemIndex == 356) //Conniver's Kunai
-				{
-					//Unfortunately I can't replicate the effect of the Conniver's Kunai exactly, otherwise you would get very little HP per kill
-					//So instead I'm taking half the victim's max health and healing the Spy with it
-					new health = GetClientHealth(attacker) + (GetClientMaxHealth(victim) / 2);
-					if (health > 200)health = 210;
-					SetEntityHealth(attacker, health);
-					
-					//Remove fire and bleed
-					TF2_RemoveCondition(attacker, TFCond_Bleeding);
-					TF2_RemoveCondition(attacker, TFCond_OnFire);
-				}
-				else if(iItemIndex == 461) //The Big Earner
-				{
-					TF2_AddCondition(attacker, TFCond_SpeedBuffAlly, 3.0);
-					
-					//Adds 30% cloak to the attacker.
-					new Float:cloak = GetEntPropFloat(attacker, Prop_Send, "m_flCloakMeter") + 30.0;
-					if (cloak > 100.0)cloak = 100.0;
-					SetEntPropFloat(attacker, Prop_Send, "m_flCloakMeter", cloak);
-				}
-				else if(iItemIndex == 649) //Spy-cicle
-				{
-					//Oh boy, how am I going to implement this one?
-					//Maybe just give the Spy the fire resistance on kill
-					
-					//Afterburn Immunity
-					TF2_AddCondition(attacker, TFCond:102, 5.0);
-					//Fire damage immunity
-					TF2_AddCondition(attacker, TFCond:69, 1.0);
-				}
-			}
-		}
-		
-		MannsMeat_SpeedMarked[victim] = false;
-		MannsMeat_SpeedInflictor[victim] = -1;
-		MannsMeat_DeathMarked[victim] = false;
-		MannsMeat_DamageMarked[victim] = false;
-		MannsMeat_Marked[victim] = false;
-		MannsMeat_Marked2[victim] = false;
-		MannsMeat_MarkInflictor[victim] = -1;
+		KnifeEffectsOnKill(attacker, weapon);	
 	}
 }
 
@@ -955,9 +813,9 @@ public Action:OnClientPreThink(client)
 		SwapSpeedWhileCharged_PreThink(client, weapon);
 		OverDamageAttribs_PreThink(weapon); //Prethink for any attributes that use the "over damage" algorithm
 		CozyMeter_PreThink(client, weapon); //Prethink for the Cozy meter attribute
-		MannsMeat_PreThink(client, weapon);
 		DisableKnife(client, weapon);
 		
+		///////////////////////////////////////////////////////////
 		if(TF2_GetPlayerClass(client) == TFClass_Pyro)
 		{
 			BurnVictimsForMoveSpeed_PreThink(client, weapon); 
@@ -976,6 +834,7 @@ public Action:OnClientPreThink(client)
 		{
 			Igniter[client] = -1;
 		}
+		/////////////////////////////////////////////////////////////
 		
 		LastTick[client] = GetEngineTime();
 	}
@@ -1181,8 +1040,12 @@ public OnEntityDestroyed(Ent)
 	KnifeEffectsOnKill_KnifeID[Ent] = 0;
 	KnifeEffectsOnKill_DisableKnife[Ent] = false;
 	
-	MannsMeat[Ent] = false;
+	ResistWhileAiming[Ent] = 0.0;
 }
+
+////////////////////
+//// FUNCTIONS ////
+//////////////////
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -1382,6 +1245,8 @@ static AutoMatilda_PreThink(client, weapon)
 	TF2Attrib_SetByName(weapon, "sniper charge per sec", 1.0 + (AutoMatilda_MaxCharge[weapon] - (AutoMatilda_MaxCharge[weapon] * (AutoMatilda_ReserveCharge[weapon] / 100.0) * 1.5)));
 }
 
+////////////////////////////////////////////////////////////////////////////
+
 //SwapSpeedWhileCharged stuff
 
 static SwapSpeedWhileCharged_PreThink(client, weapon)
@@ -1402,6 +1267,8 @@ static SwapSpeedWhileCharged_PreThink(client, weapon)
 	}
 }
 
+////////////////////////////////////////////////////////////////////////////
+
 //BurningPlayerHealsAttacker stuff
 static BurningPlayerHealsAttacker_PreThink(client)
 {
@@ -1413,6 +1280,8 @@ static BurningPlayerHealsAttacker_PreThink(client)
 		BurningPlayerHealsAttacker_Restore[client] = 0;
 	}
 }
+
+////////////////////////////////////////////////////////////////////////
 
 //CozyMeter stuff
 stock CozyMeter_PreThink(client, weapon)
@@ -1457,6 +1326,8 @@ stock CozyMeter_PreThink(client, weapon)
 	}
 }
 
+//////////////////////////////////////////////////////////////////////////
+
 //BurnVictimsForMoveSpeed stuff
 static BurnVictimsForMoveSpeed_PreThink(client, weapon)
 {
@@ -1487,6 +1358,8 @@ static BurnVictimsForMoveSpeed_PreThink(client, weapon)
 	TF2_AddCondition(client, TFCond_SpeedBuffAlly, 0.001); //Updates the player's movement speed
 }
 
+/////////////////////////////////////////////////////////////////
+
 //Hellfire stuff
 static Hellfire_PreThink(client)
 {
@@ -1506,6 +1379,8 @@ static Hellfire_PreThink(client)
 	
 }
 
+/////////////////////////////////////////////////////////////
+
 //KnifeEffectsOnKill stuff
 static DisableKnife(client, weapon)
 {
@@ -1522,34 +1397,67 @@ static DisableKnife(client, weapon)
 		SetEntPropEnt(client, Prop_Send, "m_hActiveWeapon", GetPlayerWeaponSlot(client, 0));
 	}
 }
-
-//MannsMeat
-//JOKE ATTRIBUTE
-static MannsMeat_PreThink(client, weapon)
+static KnifeEffectsOnKill(client, weapon)
 {
-	if (!MannsMeat[GetPlayerWeaponSlot(client, 2)])return;
-	
-	if(MannsMeat[weapon]) //If the active weapon is the Manns Meat
+	if(KnifeEffectsOnKill[weapon])
 	{
-		for (new i = 1; i <= MaxClients; i++)
+		if(GetPlayerWeaponSlot(attacker, 2) > -1)
 		{
-			new Float:fPos1[3];
-			GetClientAbsOrigin(client, fPos1);
+			new iItemIndex = KnifeEffectsOnKill_KnifeID[weapon];
 			
-			if(IsValidClient(i) && GetClientTeam(i) != GetClientTeam(client) && MannsMeat_SpeedMarked[i] && MannsMeat_SpeedInflictor[i] == client)
+			if(iItemIndex == 225 || iItemIndex == 574) //Your Eternal Reward/Wanga Prick
 			{
-				new Float:fPos2[3];
-				GetClientAbsOrigin(i, fPos2);
+				//Oh god, I didn't expect this to take so long
 				
-				new Float:fDistance = GetVectorDistance(fPos1, fPos2);
-				if(fDistance <= 450)
-				{
-					TF2_AddCondition(client, TFCond_SpeedBuffAlly, 0.2);
-				}
+				//Starts the disguise process
+				TF2_DisguisePlayer(attacker, TFTeam:TF2_GetClientTeam(victim), TFClassType:TF2_GetPlayerClass(victim), victim);
+				
+				//Sets ALL of the variables needed to disguise the attacker
+				SetEntProp(attacker, Prop_Send, "m_nMaskClass", TF2_GetPlayerClass(victim));
+				SetEntProp(attacker, Prop_Send, "m_nDisguiseClass", TF2_GetPlayerClass(victim));
+				SetEntProp(attacker, Prop_Send, "m_nDesiredDisguiseClass", TF2_GetPlayerClass(victim));
+				SetEntProp(attacker, Prop_Send, "m_nDisguiseTeam", TF2_GetClientTeam(victim));
+				SetEntProp(attacker, Prop_Send, "m_iDisguiseTargetIndex", victim);					SetEntProp(attacker, Prop_Send, "m_iDisguiseHealth", GetClientHealth(attacker));
+				
+				//Finishes it all up
+				TF2_AddCondition(attacker, TFCond_Disguised);
 			}
-		}		
+			else if(iItemIndex == 356) //Conniver's Kunai
+			{
+				//Unfortunately I can't replicate the effect of the Conniver's Kunai exactly, otherwise you would get very little HP per kill
+				//So instead I'm taking half the victim's max health and healing the Spy with it
+				new health = GetClientHealth(attacker) + (GetClientMaxHealth(victim) / 2);
+				if (health > 200)health = 210;
+				SetEntityHealth(attacker, health);
+				
+				//Remove fire and bleed
+				TF2_RemoveCondition(attacker, TFCond_Bleeding);
+				TF2_RemoveCondition(attacker, TFCond_OnFire);
+			}
+			else if(iItemIndex == 461) //The Big Earner
+			{
+				TF2_AddCondition(attacker, TFCond_SpeedBuffAlly, 3.0);
+				
+				//Adds 30% cloak to the attacker.
+				new Float:cloak = GetEntPropFloat(attacker, Prop_Send, "m_flCloakMeter") + 30.0;
+				if (cloak > 100.0)cloak = 100.0;
+				SetEntPropFloat(attacker, Prop_Send, "m_flCloakMeter", cloak);
+			}
+			else if(iItemIndex == 649) //Spy-cicle
+			{
+				//Oh boy, how am I going to implement this one?
+				//Maybe just give the Spy the fire resistance on kill
+					
+				//Afterburn Immunity
+				TF2_AddCondition(attacker, TFCond:102, 5.0);
+				//Fire damage immunity
+				TF2_AddCondition(attacker, TFCond:69, 1.0);
+			}
+		}
 	}
 }
+
+///////////////////////////////////////////////////////////////////
 
 //OverDamage attribute prethink
 //This is where a copy-pasted algorithm of "deal damage to increase this, but it resets after so long" goes
