@@ -29,17 +29,6 @@ List of the current weapons this plugin mods and in what form:
 		-Is now the only flamethrower that inflicts the healing debuff
 		-Phlog crits replaced with instant health restoration and temporary damage resistance
 		
-	-Enforcer
-		-Now deals bonus damage based on cloak meter, up to 30% more damage at full meter
-		-Dealing damage drains little bits of cloak depending on bonus damage dealt
-		-On kill: Cloak lost is restored completely
-		-Firing stops cloak regen for 1s
-		-Still retains slower firing speed
-		
-	-L'Etranger
-		-50% of damage dealt is returned as cloak
-		-This feature makes cloak restoration range between 8% and 24%, allowing for more overall cloak restoration.
-		
 */
 
 public Plugin myinfo = {
@@ -64,7 +53,7 @@ public OnPluginStart() {
 public void OnClientPutInServer(client)
 {
 	SDKHook(client, SDKHook_OnTakeDamage, OnTakeDamage);
-	SDKHook(client, SDKHook_OnTakeDamageAlive, OnTakeDamageAlive);
+	//SDKHook(client, SDKHook_OnTakeDamageAlive, OnTakeDamageAlive);
 	SDKHook(client, SDKHook_PreThink, OnClientPreThink);
 }
 
@@ -110,33 +99,7 @@ public Action:OnTakeDamage(victim, &attacker, &inflictor, &Float:damage, &damage
 			TF2_RemoveCondition(victim, TFCond:118); //Remove the healing debuff
 		}
 	}
-	if(TF2_GetPlayerClass(attacker) == TFClass_Spy)
-	{
-		if(GetWeaponIndex(weapon) == 460) //The Enforcer
-		{
-			new Float:cloakbonus = GetEntPropFloat(attacker, Prop_Send, "m_flCloakMeter") * 0.3;
-			damage *= 1.0 + cloakbonus;
-			
-			new Float:cloak = GetEntPropFloat(attacker, Prop_Send, "m_flCloakMeter") - (cloakbonus / 2);
-			if(cloak < 0.0) cloak = 0.0;
-			SetEntPropFloat(attacker, Prop_Send, "m_flCloakMeter", cloak);
-		}
-	}
 	return action;
-}
-
-public OnTakeDamageAlive(victim, attacker, inflictor, Float:damage, damagetype, weapon)
-{
-	if(TF2_GetPlayerClass(attacker) == TFClass_Spy)
-	{
-		if(GetWeaponIndex(weapon) == 224) //L'Etranger
-		{
-			new Float:cloak = GetEntPropFloat(attacker, Prop_Send, "m_flCloakMeter");
-			cloak += damage * 0.5;
-			if(cloak > 100.0) cloak = 100.0;
-			SetEntPropFloat(attacker, Prop_Send, "m_flCloakMeter", cloak);
-		}
-	}
 }
 
 public Action:OnClientPreThink(client)
@@ -172,7 +135,7 @@ public Action:OnClientPreThink(client)
 			if(TF2_IsPlayerInCondition(client, TFCond:52)) //If Phlog crits are added to the client
 			{
 				SetEntityHealth(client, GetClientMaxHealth(client)); //Fills the player's health to full
-				TF2_AddCondition(client, TFCond:45, 10.0); //Gives the player some temporary damage resistance
+				TF2_AddCondition(client, TFCond:45, 3.0); //Gives the player some temporary damage resistance
 			}
 		}
 		
