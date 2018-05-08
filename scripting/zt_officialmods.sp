@@ -29,6 +29,12 @@ List of the current weapons this plugin mods and in what form:
 		-Is now the only flamethrower that inflicts the healing debuff
 		-Phlog crits replaced with instant health restoration and temporary damage resistance
 		
+	-Sun-on-a-Stick
+		-Alt-fire now launches balls that set shit ON FIAHHHH!
+		-Balls will create small explosions on impact with anything
+		-Balls can also ignite the user
+		-The user will now take 25% less damage while on fire and this weapon is active
+		
 */
 
 public Plugin myinfo = {
@@ -89,6 +95,10 @@ public Action:OnTakeDamage(victim, &attacker, &inflictor, &Float:damage, &damage
 				action = Plugin_Continue; //Do not change the damage
 			}
 		}
+	}
+	if(TF2_GetPlayerClass(victim) == TFClass_Scout)
+	{
+		if(GetWeaponIndex(GetActiveWeapon(victim)) == )
 	}
 	
 	//This little chunk right here just makes it so the Phlogistinator is the only flamethrower that inflicts the healing debuff
