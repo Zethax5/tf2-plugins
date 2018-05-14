@@ -124,6 +124,8 @@ new Float:CurseOnkill_Dur[2049];
 new Float:CurseOnkill_Restore[2049];
 new Float:CurseOnkill_Delay[2049];
 new Float:CurseOnkill_Vuln[2049];
+new Float:CurseOnkill_Charge[2049];
+new Float:CurseOnkill_MaxCharge[2049];
 new bool:Cursed[MAXPLAYERS + 1];
 new Float:Cursed_DmgTaken[MAXPLAYERS + 1];
 new Cursed_Slot[MAXPLAYERS + 1];
@@ -700,6 +702,11 @@ public Action:OnTakeDamageAlive(victim, &attacker, &inflictor, &Float:damage, &d
 	
 	if(Cursed[victim])
 		Cursed_DmgTaken[victim] += damage;
+		
+	if(CurseOnkill[weapon] && CurseOnkill_Charge[weapon] < CurseOnkill_MaxCharge[weapon])
+		CurseOnkill_Charge[weapon] += damage;
+	if(CurseOnkill[GetActiveWeapon(victim)] && CurseOnkill_Charge[GetActiveWeapon(victim)] < CurseOnkill_MaxCharge[GetActiveWeapon(victim)])
+		CurseOnkill_Charge[GetActiveWeapon(victim)] += damage;
 	
 	return action;	
 }
@@ -711,11 +718,15 @@ public Action:OnTakeDamageAlive(victim, &attacker, &inflictor, &Float:damage, &d
 public OnClientPreThink(client)
 {
 	if (!IsValidClient(client))return;
+	new weapon = GetActiveWeapon(client);
 	
 	if(GetEngineTime() >= LastTick[client] + 0.1)
 	{
 		Invig_PreThink(client);
 		DispenserUbercharge_PreThink(client);
+		
+		if(CurseOnkill[weapon] && CurseOnkill_Charge[weapon] < CurseOnkill_MaxCharge[weapon])
+			CurseOnkill_Charge[weapon]++;
 		
 		LastTick[client] = GetEngineTime();
 	}
@@ -847,7 +858,7 @@ public Action:CW3_OnAddAttribute(slot, client, const String:attrib[], const Stri
 		ExplodeString(value, " ", values, sizeof(values), sizeof(values[]));
 		
 		CurseOnkill_Dur[weapon] = StringToFloat(values[0]);
-		CurseOnkill_Vuln[weapon] = StringToFloat(values[1]);
+		CurseOnkill_MaxCharge[weapon] = StringToFloat(values[1]);
 		CurseOnkill_Radius[weapon] = StringToFloat(values[2]);
 		CurseOnkill_Restore[weapon] = StringToFloat(values[3]);
 		
@@ -930,7 +941,8 @@ public OnEntityDestroyed(Ent)
 	
 	CurseOnkill[Ent] = false;
 	CurseOnkill_Dur[Ent] = 0.0;
-	CurseOnkill_Vuln[Ent] = 0.0;
+	CurseOnkill_MaxCharge[Ent] = 0.0;
+	CurseOnkill_Charge[Ent] = 0.0;
 	CurseOnkill_Restore[Ent] = 0.0;
 	CurseOnkill_Radius[Ent] = 0.0;
 	
