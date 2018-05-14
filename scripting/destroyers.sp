@@ -1130,7 +1130,7 @@ ExplodeOnReload_PreThink(client, weapon)
 	if(GetClip_Weapon(weapon) == ExplodeOnReload_MaxClip[weapon] && !ExplodeOnReload_Exploded[weapon])
 	{
 		DealRadiusDamage(client, _, _, ExplodeOnReload_BlastRadius[weapon], ExplodeOnReload_MaxFalloff[weapon], ExplodeOnReload_MaxDamage[weapon], DMG_BLAST, 2, false);
-		SpawnParticle(client, "ExplosionCore_Wall");
+		SpawnParticle(client, PARTICLE_EXPLODE);
 		//PrintToChat(client, "Dealing explosion...");
 		ExplodeOnReload_Exploded[weapon] = true;
 		//PrintToChat(client, "Weapon unprimed");
