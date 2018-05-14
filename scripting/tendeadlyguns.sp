@@ -123,7 +123,6 @@ new Float:CurseOnkill_Radius[2049];
 new Float:CurseOnkill_Dur[2049];
 new Float:CurseOnkill_Restore[2049];
 new Float:CurseOnkill_Delay[2049];
-new Float:CurseOnkill_Vuln[2049];
 new Float:CurseOnkill_Charge[2049];
 new Float:CurseOnkill_MaxCharge[2049];
 new bool:Cursed[MAXPLAYERS + 1];
@@ -352,7 +351,7 @@ static TorchingMultAfterburn_OnTakeDamage(weapon, victim, damagetype)
 //Stuff for the attribute "curse players on kill"
 static CurseOnkill_OnKill(attacker, victim, weapon)
 {
-	if(CurseOnkill[weapon])
+	if(CurseOnkill[weapon] && CurseOnkill_Charge[weapon] >= CurseOnkill_MaxCharge[weapon])
 	{
 		for (new i = 1; i <= MaxClients; i++)
 		{
@@ -369,23 +368,25 @@ static CurseOnkill_OnKill(attacker, victim, weapon)
 				{
 					Cursed[i] = true;
 					CurseOnkill_Restore[i] = CurseOnkill_Restore[weapon];
-					CurseOnkill_Vuln[i] = CurseOnkill_Vuln[weapon];
 					CurseOnkill_Dur[i] = CurseOnkill_Dur[weapon];
 					CurseOnkill_Delay[i] = GetEngineTime();
 					Cursed_Slot[i] = GetActiveWeapon(i);
 					TF2Attrib_SetByName(GetActiveWeapon(i), "health from healers reduced", 0.0);
 					TF2Attrib_SetByName(GetActiveWeapon(i), "health from packs decreased", 0.0);
 					EmitSoundToClient(i, SOUND_PLAGUE);
+					CurseOnkill_Charge[weapon] = 0.0;
 				}
 			}
 		}
 	}
 	if(Cursed[victim])
 	{
-		HealPlayer(attacker, attacker, RoundFloat(GetClientMaxHealth(attacker) * CurseOnkill_Restore[victim]), 1.0);
+		if(CurseOnkill[weapon])
+			HealPlayer(attacker, attacker, RoundFloat(GetClientMaxHealth(attacker) * CurseOnkill_Restore[victim]), 1.0);
+		else
+			HealPlayer(attacker, attacker, RoundFloat(GetClientMaxHealth(attacker) * (CurseOnkill_Restore[victim] / 2.0)), 1.0);
 		Cursed[victim] = false;
 		CurseOnkill_Restore[victim] = 0.0;
-		CurseOnkill_Vuln[victim] = 0.0;
 		CurseOnkill_Dur[victim] = 0.0;
 		CurseOnkill_Delay[victim] = 0.0;
 		Cursed_DmgTaken[victim] = 0.0;
@@ -669,11 +670,6 @@ public Action:OnTakeDamage(victim, &attacker, &inflictor, &Float:damage, &damage
 		damage *= 1.0 + bonus;
 		action = Plugin_Changed;
 	}
-	if(Cursed[victim])
-	{
-		damage *= 1.0 + CurseOnkill_Vuln[victim];
-		action = Plugin_Changed;
-	}
 	if(Invig_Dur[victim] > 0.0 && GetClientHealth(victim) > GetClientMaxHealth(victim))
 	{
 		damage *= 0.65;
@@ -741,7 +737,6 @@ public OnClientPreThink(client)
 			EmitSoundToClient(client, SOUND_BOLTHEAL);
 			
 			Cursed[client] = false;
-			CurseOnkill_Vuln[client] = 0.0;
 			CurseOnkill_Restore[client] = 0.0;
 			Cursed_DmgTaken[client] = 0.0;
 			CurseOnkill_Dur[client] = 0.0;
