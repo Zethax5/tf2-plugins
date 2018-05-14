@@ -13,6 +13,8 @@
 #define PLUGIN_VERSION "stable release 2"
 #define SLOTS_MAX 7
 
+#define PARTICLE_EXPLODE		"particles/explode1.pcf"
+
 public Plugin:myinfo = {
 	name = "Destroyer Pack",
 	author = "Zethax",
@@ -210,6 +212,7 @@ public OnPluginStart() { //2-1
 public OnMapStart()
 {
 	//PrecacheSound("weapons/minigun_spin.wav", true);
+	PrecacheParticle(PARTICLE_EXPLODE);
 }
 public OnClientPutInServer(client) //2-3
 {
