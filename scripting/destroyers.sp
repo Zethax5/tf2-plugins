@@ -13,7 +13,7 @@
 #define PLUGIN_VERSION "stable release 2"
 #define SLOTS_MAX 7
 
-#define PARTICLE_EXPLODE		"particles/explode1.pcf"
+#define PARTICLE_EXPLODE		"ExplosionCore_Wall"
 
 public Plugin:myinfo = {
 	name = "Destroyer Pack",
