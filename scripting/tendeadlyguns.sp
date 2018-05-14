@@ -25,10 +25,10 @@ The section where I define all the variables and functions
 
 //SOUNDS
 #define SOUND_PLAGUE					"items/powerup_pickup_plague_infected.wav"
-#define SOUND_BOLTHEAL						"weapons/fx/rics/arrow_impact_crossbow_heal.wav"
+#define SOUND_BOLTHEAL					"weapons/fx/rics/arrow_impact_crossbow_heal.wav"
 #define SOUND_DISPENSERHEAL				"weapons/dispenser_heal.wav"
 #define SOUND_MAGNETRELEASE				"vehicles/crane/crane_magnet_release.wav"
-#define SOUND_HELI						"npc/attack_helicopter/aheli_charge_up.wav"
+#define SOUND_HELI					"npc/attack_helicopter/aheli_charge_up.wav"
 
 //PARTICLES
 #define PARTICLE_SHIELD					"powerup_supernova_ready"
