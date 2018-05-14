@@ -80,7 +80,14 @@ public Plugin:myinfo = {
 					This is to prevent Pyros and Heavies from becoming ubercharge generators for any Medic who pockets them
 					
 		-7: "dispenser ubercharge"
-			Changes Ubercharge to create a 
+			Changes Ubercharge to create a radial effect that grants nearby allies 25% faster firing and reload speed
+			Grants you and your patient exclusively 50% faster firing and reload speed, and a massive speed boost
+				1: Radius of the radial effect, in hammer units
+				
+		-8: "buff ubercharge"
+			Changes Ubercharge to grant your patient all 3 buff banner effects for a given length of time
+				1: Duration of the effects
+				2: % of ubercharge to drain per use
 
 */
 
@@ -140,6 +147,11 @@ new Float:DamageChargesUber_Delay[2049];
 new bool:DispenserUbercharge[2049];
 new Float:DispenserUbercharge_Radius[2049];
 new bool:DispenserUbercharge_Ubered[2049];
+
+//Values for the attribute "buff ubercharge"
+new bool:BuffUber[2049];
+new Float:BuffUber_Drain[2049];
+new Float:BuffUber_Dur[2049];
 
 new Float:LastTick[MAXPLAYERS + 1];
 
@@ -474,7 +486,9 @@ static DamageChargesUber_OnTakeDamageAlive(attacker, Float:damage)
 			DamageChargesUber_Counter[medigun] = 0.0;
 	
 	new Float:ubercharge = GetEntPropFloat(medigun, Prop_Send, "m_flChargeLevel");
-	ubercharge += (damage / 100.0) * (DamageChargesUber_Self[medigun] * (1.0 - (DamageChargesUber_Minimum[medigun] * DamageChargesUber_Counter[medigun])));
+	new Float:gain = (damage / 100.0) * (DamageChargesUber_Self[medigun] * (1.0 - (DamageChargesUber_Minimum[medigun] * DamageChargesUber_Counter[medigun])));
+	if(gain < 0.0) gain = 0.0
+	ubercharge += gain;
 	if(ubercharge > 1.0)
 		ubercharge = 1.0;
 	SetEntPropFloat(medigun, Prop_Send, "m_flChargeLevel", ubercharge);
@@ -530,6 +544,50 @@ static DispenserUbercharge_PreThink(client)
 		
 	if(IsValidClient(patient) && DispenserUbercharge_Ubered[patient] && !GetEntProp(medigun, Prop_Send, "m_bChargeRelease"))
 		DispenserUbercharge_Ubered[patient] = false;
+}
+
+
+
+///////////////////////////////////////////////////////////////////
+//Stuff for the attribute "buff ubercharge"
+static BuffUber_PreThink(client)
+{
+	if (!IsValidClient(client))return;
+	
+	new weapon = GetActiveWeapon(client);
+	if (weapon < 0 || weapon > 2048)return;
+	if (!BuffUber[weapon])return;
+	
+	new Float:ubercharge = GetEntPropFloat(weapon, Prop_Send, "m_flChargeLevel");
+	new buttons = GetClientButtons(client);
+	
+	if((buttons & IN_ATTACK2) == IN_ATTACK2 && ubercharge >= BuffUber_Drain[weapon])
+	{
+		new patient = GetMediGunPatient(client);
+		if(IsValidClient(patient))
+		{
+			if(!TF2_IsPlayerInCondition(patient, TFCond_Buffed)
+				TF2_AddCondition(patient, TFCond_Buffed, BuffUber_Dur[weapon]);
+			if(!TF2_IsPlayerInCondition(patient, TFCond:26)
+				TF2_AddCondition(patient, TFCond:26, BuffUber_Dur[weapon]);
+			if(!TF2_IsPlayerInCondition(patient, TFCond:29)
+				TF2_AddCondition(patient, TFCond:29, BuffUber_Dur[weapon]);
+		}
+		else
+		{
+			if(!TF2_IsPlayerInCondition(client, TFCond_Buffed)
+				TF2_AddCondition(client, TFCond_Buffed, BuffUber_Dur[weapon]);
+			if(!TF2_IsPlayerInCondition(client, TFCond:26)
+				TF2_AddCondition(client, TFCond:26, BuffUber_Dur[weapon]);
+			if(!TF2_IsPlayerInCondition(client, TFCond:29)
+				TF2_AddCondition(client, TFCond:29, BuffUber_Dur[weapon]);
+		}
+		ubercharge -= BuffUber_Drain[weapon];
+		SetEntPropFloat(medigun, Prop_Send, "m_flChargeLevel", ubercharge);
+	}
+	
+	if(ubercharge >= 0.99)
+		SetEntPropFloat(medigun, Prop_Send, "m_flChargeLevel", 0.99);
 }
 
 /*
@@ -828,6 +886,17 @@ public Action:CW3_OnAddAttribute(slot, client, const String:attrib[], const Stri
 		DispenserUbercharge[weapon] = true;
 		action = Plugin_Handled;
 	}
+	else if(StrEqual(attrib, "buff ubercharge"))
+	{
+		new String:values[2][10];
+		ExplodeString(value, " ", values, sizeof(values), sizeof(values[]));
+		
+		BuffUber_Drain[weapon] = StringToFloat(values[0]);
+		BuffUber_Dur[weapon] = StringToFloat(values[1]);
+		
+		BuffUber[weapon] = true;
+		action = Plugin_Handled;
+	}
 	
 	return action;
 }
@@ -878,6 +947,10 @@ public OnEntityDestroyed(Ent)
 	
 	DispenserUbercharge[Ent] = false;
 	DispenserUbercharge_Radius[Ent] = 0.0;
+	
+	BuffUber[Ent] = false;
+	BuffUber_Drain[Ent] = 0.0;
+	BuffUber_Dur[Ent] = 0.0;
 }
 
 public TF2_OnConditionAdded(client, TFCond:cond)
@@ -898,6 +971,3 @@ public TF2_OnConditionAdded(client, TFCond:cond)
 			TF2_RemoveCondition(client, TFCond_Dazed);
 	}
 }
-
-///////////////////////////////////////////////////////////////////
-//STOCKS
