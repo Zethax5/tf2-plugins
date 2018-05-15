@@ -650,6 +650,113 @@ static BuffUber_PreThink(client)
 		SetEntPropFloat(medigun, Prop_Send, "m_flChargeLevel", 0.99);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+
+//Destroyer Stuff
+Float:DestroyerAttrib_OnTakeDamage(victim, weapon, Float:damage)
+{
+	if (!DestroyerAttrib[weapon])return damage;
+	
+	if(DestroyerAttrib_Shot[weapon] > 0)
+	{
+		damage *= DestroyerAttrib_Mult[weapon];
+	}
+	DestroyerAttrib_EnemyHealth[weapon] = GetClientHealth(victim);
+	return damage;
+}
+DestroyerAttrib_OnTakeDamageAlive(weapon, attacker, Float:damage)
+{
+	if (weapon < 0)return;
+	
+	if (!DestroyerAttrib[weapon])return;
+	
+	if(DestroyerAttrib_Mult[weapon] > 1.0)
+	{
+		OriginalDamage[attacker] = damage / (DestroyerAttrib_Mult[weapon] - 1.0);
+		DestroyerAttrib_Mult[weapon] = 0.0;
+	}
+	else OriginalDamage[attacker] = damage;
+	DestroyerAttrib_Dmg[weapon] = OriginalDamage[attacker];
+}
+static DestroyerAttrib_PreThink(weapon)
+{
+	if (!DestroyerAttrib[weapon]) return;
+	
+	if (GetEngineTime() >= DestroyerAttrib_Delay[weapon] + DestroyerAttrib_MaxDelay[weapon])DestroyerAttrib_Shot[weapon] = 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+//Reload Boost stuff
+stock ReloadBoost_PreThink(client, weapon)
+{
+	if (!ReloadBoost[weapon])return;
+	
+	TF2Attrib_SetByName(weapon, "Reload time decreased", 1.0 - (ReloadBoost_MaxSpeed[weapon] * (ReloadBoost_Charge[weapon] / ReloadBoost_MaxCharge[weapon])));
+	
+	if(GetClip_Weapon(weapon) == ReloadBoost_MaxClip[weapon])
+		ReloadBoost_Charge[weapon] = 0.0;
+	
+	if(GetEngineTime() >= ReloadBoost_Delay[weapon] + ReloadBoost_MaxDelay[weapon])
+	{
+		if(ReloadBoost_Charge[weapon] > 0.0)
+		{
+			ReloadBoost_Charge[weapon] -= (ReloadBoost_MaxCharge[weapon] * 
+											ReloadBoost_DrainRate[weapon]);
+		}
+		if(ReloadBoost_Charge[weapon] < 0.0)
+			ReloadBoost_Charge[weapon] = 0.0;
+			
+		ReloadBoost_Delay[weapon] = GetEngineTime() + (ReloadBoost_MaxDelay[weapon] - 1.0);
+	}
+	
+	SetHudTextParams(-1.0, 0.5, 0.2, 255, 255, 255, 255);
+	ShowSyncHudText(client, CozyMeter_Display, "Boost: [%i%%] / [100%]", (ReloadBoost_Charge[weapon] / ReloadBoost_MaxCharge[weapon]) * 100.0);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+//ExplodeOnReload stuff
+ExplodeOnReload_PreThink(client, weapon)
+{
+	if (!ExplodeOnReload[weapon])return;
+	
+	if(GetClip_Weapon(weapon) < ExplodeOnReload_MaxClip[weapon])
+	{
+		ExplodeOnReload_Exploded[weapon] = false;
+		//PrintToChat(client, "Weapon is primed");
+	}
+	
+	if(GetClip_Weapon(weapon) == ExplodeOnReload_MaxClip[weapon] && !ExplodeOnReload_Exploded[weapon])
+	{
+		DealRadiusDamage(client, _, _, ExplodeOnReload_BlastRadius[weapon], ExplodeOnReload_MaxFalloff[weapon], ExplodeOnReload_MaxDamage[weapon], DMG_BLAST, 2, false);
+		SpawnParticle(client, PARTICLE_EXPLODE);
+		//PrintToChat(client, "Dealing explosion...");
+		ExplodeOnReload_Exploded[weapon] = true;
+		//PrintToChat(client, "Weapon unprimed");
+	}
+}
+
+static AutoMatilda_PreThink(client, weapon)
+{
+	if (weapon < 0)return;
+	
+	if (!AutoMatilda[weapon])return;
+	
+	if (!Client_IsValid(client))return;
+	
+	new buttons = GetClientButtons(client);
+	
+	if((buttons & IN_ATTACK3) == IN_ATTACK3 && AutoMatilda_ReserveCharge[weapon] < 100.0)
+	{
+		AutoMatilda_ReserveCharge[weapon] += RoundToFloor(GetEntPropFloat(weapon, Prop_Send, "m_flChargedDamage")) * 0.6666666666;
+		if (AutoMatilda_ReserveCharge[weapon] > 100.0)AutoMatilda_ReserveCharge[weapon] = 100.0;
+		SetEntPropFloat(weapon, Prop_Send, "m_flChargedDamage", 0.0);
+	}
+	
+	TF2Attrib_SetByName(weapon, "sniper charge per sec", 1.0 + (AutoMatilda_MaxCharge[weapon] - (AutoMatilda_MaxCharge[weapon] * (AutoMatilda_ReserveCharge[weapon] / 100.0) * 1.5)));
+}
+
 /*
 //===============================================================\\
 //						[ CORE FUNCTIONS ]						 \\
@@ -675,6 +782,13 @@ public Action:TF2_CalcIsAttackCritical(client, weapon, String:weaponname[], &boo
 		
 	if(AccuracyBoostSpeed[weapon] || DirectHitRewards[weapon])
 		CreateTimer(0.0, RemoveFireRateBonus, EntIndexToEntRef(weapon), TIMER_FLAG_NO_MAPCHANGE);
+		
+	if(AutoMatilda[weapon])
+	{
+		AutoMatilda_DamageMultiplier[weapon] = (AutoMatilda_ReserveCharge[weapon] / 100) * 3;
+		AutoMatilda_ReserveCharge[weapon] = 0.0;
+		CreateTimer(0.1, AutoMatilda_ResetCharge, client, TIMER_FLAG_NO_MAPCHANGE);
+	}
 	
 	return action;
 }
@@ -882,6 +996,18 @@ public Action:RemoveFireRateBonus(Handle:timer, any:data)
 	TF2Attrib_RemoveByName(weapon, "fire rate bonus");
 	
 	return;
+}
+
+public Action:AutoMatilda_ResetCharge(Handle:timer, any:client)
+{
+	if(Client_IsValid(client))
+	{
+		new weapon = Client_GetActiveWeapon(client);
+		if(weapon > -1)
+		{
+			AutoMatilda_DamageMultiplier[weapon] = 0.0;
+		}
+	}
 }
 
 
