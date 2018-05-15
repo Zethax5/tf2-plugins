@@ -731,6 +731,7 @@ ExplodeOnReload_PreThink(client, weapon)
 	{
 		DealRadiusDamage(client, _, _, ExplodeOnReload_BlastRadius[weapon], ExplodeOnReload_MaxFalloff[weapon], ExplodeOnReload_MaxDamage[weapon], DMG_BLAST, 2, false);
 		SpawnParticle(client, PARTICLE_EXPLODE);
+		EmitSoundToAll(SOUND_EXPLODE, client);
 		//PrintToChat(client, "Dealing explosion...");
 		ExplodeOnReload_Exploded[weapon] = true;
 		//PrintToChat(client, "Weapon unprimed");
