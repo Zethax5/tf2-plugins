@@ -29,9 +29,11 @@ The section where I define all the variables and functions
 #define SOUND_DISPENSERHEAL				"weapons/dispenser_heal.wav"
 #define SOUND_MAGNETRELEASE				"vehicles/crane/crane_magnet_release.wav"
 #define SOUND_HELI					"npc/attack_helicopter/aheli_charge_up.wav"
+#define SOUND_EXPLODE 					"weapons/explode1.wav"
 
 //PARTICLES
 #define PARTICLE_SHIELD					"powerup_supernova_ready"
+#define PARTICLE_EXPLODE				"ExplosionCore_Wall"
 
 public Plugin:myinfo = {
 	name = PLUGIN_NAME,
@@ -88,6 +90,13 @@ public Plugin:myinfo = {
 			Changes Ubercharge to grant your patient all 3 buff banner effects for a given length of time
 				1: Duration of the effects
 				2: % of ubercharge to drain per use
+				
+		-9: "curse players on kill"
+			Dealing damage builds up a 'curse' meter, which activates on kill to curse players in a given radius
+				1: Duration of the curse
+				2: Damage required to charge the effect
+				3: Radius of the cursing effect
+				4: % of the attacker's max health to restore upon killing a cursed player. This is reduced by half for the user.
 
 */
 
@@ -154,6 +163,51 @@ new bool:BuffUber[2049];
 new Float:BuffUber_Drain[2049];
 new Float:BuffUber_Dur[2049];
 
+
+
+//VALUES FROM PREVIOUS PLUGINS
+//The base values for DestroyerAttrib
+new bool:DestroyerAttrib[2049];
+new Float:DestroyerAttrib_Pct[2049];
+//All three of these are values based on damage
+new Float:DestroyerAttrib_Dmg[2049];
+new Float:DestroyerAttrib_Mult[2049];
+new DestroyerAttrib_EnemyHealth[2049];
+//Needed to track whether or not the player has fired their power shot yet
+new DestroyerAttrib_Shot[2049];
+new Float:DestroyerAttrib_Delay[2049];
+new Float:DestroyerAttrib_MaxDelay[2049];
+
+//The base values for ReloadBoost
+new bool:ReloadBoost[2049];
+new Float:ReloadBoost_MaxCharge[2049];
+new Float:ReloadBoost_MaxSpeed[2049];
+new Float:ReloadBoost_MaxDelay[2049];
+new Float:ReloadBoost_DrainRate[2049];
+//Tracing values
+new Float:ReloadBoost_Charge[2049];
+new ReloadBoost_MaxClip[2049];
+//Timing based values
+new Float:ReloadBoost_Delay[2049];
+
+//The base values for ExplodeOnReload
+new bool:ExplodeOnReload[2049];
+new Float:ExplodeOnReload_BlastRadius[2049]; //The blast radius for a rocket is 146 I think
+new ExplodeOnReload_MaxDamage[2049];
+new Float:ExplodeOnReload_MaxFalloff[2049];
+new ExplodeOnReload_Mode[2049]; //Used to allow this attribute to tap into the ReloadBoost attribute
+//Tracing values
+new ExplodeOnReload_MaxClip[2049];
+new bool:ExplodeOnReload_Exploded[2049];
+
+//The base values for AutoMatilda
+new bool:AutoMatilda[2049];
+new Float:AutoMatilda_MaxCharge[2049];
+new Float:AutoMatilda_ReserveCharge[2049];
+new Float:AutoMatilda_DamageMultiplier[2049];
+
+
+
 new Float:LastTick[MAXPLAYERS + 1];
 
 public OnPluginStart() { //2-1
@@ -184,7 +238,9 @@ public OnMapStart()
 	PrecacheSound(SOUND_DISPENSERHEAL, true);
 	PrecacheSound(SOUND_MAGNETRELEASE, true);
 	PrecacheSound(SOUND_HELI, true);
+	PrecacheSound(SOUND_EXPLODE, true);
 	PrecacheParticle(PARTICLE_SHIELD);
+	PrecacheParticle(PARTICLE_EXPLODE);
 }
 
 /*
@@ -394,6 +450,7 @@ static CurseOnkill_OnKill(attacker, victim, weapon)
 	}
 	if(Cursed[attacker])
 	{
+		HealPlayer(attacker, attacker, RoundFloat(GetClientMaxHealth(attacker) * CurseOnkill_Restore[attacker]), 1.0);
 		CurseOnkill_Dur[attacker] = 0.0;
 		CurseOnkill_Delay[attacker] = 0.0;
 	}
@@ -641,6 +698,14 @@ public Action:Event_Death(Handle:event, const String:name[], bool:dontBroadcast)
 		Invig_Particle[victim] = 0;
 		Invig_Dur[victim] = 0.0;
 	}
+	if(DestroyerAttrib[weapon])
+	{
+		DestroyerAttrib_Mult[weapon] = ((OriginalDamage[attacker] - DestroyerAttrib_EnemyHealth[weapon]) / OriginalDamage[attacker]) * DestroyerAttrib_Pct[weapon] + 1.0;
+		DestroyerAttrib_Shot[weapon] = 2;
+		
+		DestroyerAttrib_Delay[weapon] = GetEngineTime();
+		//PrintToChat(attacker, "Destroyer shot charged");
+	}
 	
 	return action;
 }
@@ -675,6 +740,16 @@ public Action:OnTakeDamage(victim, &attacker, &inflictor, &Float:damage, &damage
 		damage *= 0.65;
 		action = Plugin_Changed;
 	}
+	if(DestroyerAttrib[weapon]) //This section is for calling on the destroyer attribute's stock to increase damage
+	{ //It's basically where overkill damage from your last kill is added
+		damage = DestroyerAttrib_OnTakeDamage(victim, weapon, damage);
+		action = Plugin_Changed;
+	}
+	if(AutoMatilda[weapon] && AutoMatilda_DamageMultiplier[weapon] > 0.0) //This is where bonus charge from the auto matilda attribute is used
+	{ //It basically increases the damage based on the given multiplier, which is calculated based on stored excess charge.
+		damage *= AutoMatilda_DamageMultiplier[weapon];
+		action = Plugin_Changed;
+	}
 	
 	//DirectHitRewards_OnTakeDamage(weapon, damage, damagetype);
 	
@@ -703,6 +778,19 @@ public Action:OnTakeDamageAlive(victim, &attacker, &inflictor, &Float:damage, &d
 		CurseOnkill_Charge[weapon] += damage;
 	if(CurseOnkill[GetActiveWeapon(victim)] && CurseOnkill_Charge[GetActiveWeapon(victim)] < CurseOnkill_MaxCharge[GetActiveWeapon(victim)])
 		CurseOnkill_Charge[GetActiveWeapon(victim)] += damage;
+		
+	DestroyerAttrib_OnTakeDamageAlive(weapon, attacker, damage); //Destroyer Attribute
+		
+	if(ReloadBoost[weapon])
+	{
+		ReloadBoost_Charge[weapon] += damage;
+		if(ReloadBoost_Charge[weapon] > ReloadBoost_MaxCharge[weapon])
+			ReloadBoost_Charge[weapon] = ReloadBoost_MaxCharge[weapon];
+				
+		//PrintToChat(attacker, "adding charge to weapon");
+		
+		ReloadBoost_Delay[weapon] = GetEngineTime();
+	}
 	
 	return action;	
 }
@@ -715,11 +803,16 @@ public OnClientPreThink(client)
 {
 	if (!IsValidClient(client))return;
 	new weapon = GetActiveWeapon(client);
+	if (weapon < 0 || weapon > 2048)return;
 	
 	if(GetEngineTime() >= LastTick[client] + 0.1)
 	{
 		Invig_PreThink(client);
 		DispenserUbercharge_PreThink(client);
+		ReloadBoost_PreThink(client, weapon); //Prethink for reload boost based on damage attribute
+		ExplodeOnReload_PreThink(client, weapon);
+		DestroyerAttrib_PreThink(weapon);
+		AutoMatilda_PreThink(client, weapon);
 		
 		if(CurseOnkill[weapon] && CurseOnkill_Charge[weapon] < CurseOnkill_MaxCharge[weapon])
 			CurseOnkill_Charge[weapon]++;
@@ -903,6 +996,59 @@ public Action:CW3_OnAddAttribute(slot, client, const String:attrib[], const Stri
 		BuffUber[weapon] = true;
 		action = Plugin_Handled;
 	}
+	if(StrEqual(attrib, "overkill damage bonus"))
+	{
+		if (weapon == -1)return Plugin_Continue;
+		
+		new String:values[2][10];
+		ExplodeString(value, " ", values, sizeof(values), sizeof(values[]));
+		
+		DestroyerAttrib_Pct[weapon] = StringToFloat(values[0]);
+		DestroyerAttrib_MaxDelay[weapon] = StringToFloat(values[1]);
+		
+		DestroyerAttrib_Dmg[weapon] = 0.0;
+		DestroyerAttrib_Shot[weapon] = 0;
+		
+		DestroyerAttrib[weapon] = true;
+		action = Plugin_Handled;
+	}
+	else if(StrEqual(attrib, "build reload boost on damage"))
+	{
+		if (weapon == -1)return Plugin_Continue;
+		
+		new String:values[4][10];
+		ExplodeString(value, " ", values, sizeof(values), sizeof(values[]));
+		
+		ReloadBoost_MaxCharge[weapon] = StringToFloat(values[0]);
+		ReloadBoost_MaxSpeed[weapon] = StringToFloat(values[1]);
+		ReloadBoost_MaxDelay[weapon] = StringToFloat(values[2]);
+		ReloadBoost_DrainRate[weapon] = StringToFloat(values[3]);
+		
+		ReloadBoost_Charge[weapon] = 0.0;
+		ReloadBoost_MaxClip[weapon] = GetClip_Weapon(weapon);
+		
+		ReloadBoost[weapon] = true;
+		action = Plugin_Handled;
+	}
+	else if(StrEqual(attrib, "explode on reload"))
+	{
+		if (weapon == -1)return Plugin_Continue;
+		
+		new String:values[3][10];
+		ExplodeString(value, " ", values, sizeof(values), sizeof(values[]));
+		
+		ExplodeOnReload_MaxDamage[weapon] = StringToInt(values[0]);
+		ExplodeOnReload_BlastRadius[weapon] = StringToFloat(values[1]);
+		ExplodeOnReload_MaxFalloff[weapon] = StringToFloat(values[2]);
+		
+		ExplodeOnReload_MaxClip[weapon] = GetClip_Weapon(weapon);
+		ExplodeOnReload_Exploded[weapon] = true;
+		
+		//PrintToChat(client, "Attributes: Explode on Reload");
+		
+		ExplodeOnReload[weapon] = true;
+		action = Plugin_Handled;
+	}
 	
 	return action;
 }
@@ -958,6 +1104,36 @@ public OnEntityDestroyed(Ent)
 	BuffUber[Ent] = false;
 	BuffUber_Drain[Ent] = 0.0;
 	BuffUber_Dur[Ent] = 0.0;
+	
+	DestroyerAttrib[Ent] = false;
+	DestroyerAttrib_Dmg[Ent] = 0.0;
+	DestroyerAttrib_Pct[Ent] = 0.0;
+	DestroyerAttrib_Mult[Ent] = 0.0;
+	DestroyerAttrib_Shot[Ent] = 0;
+	DestroyerAttrib_EnemyHealth[Ent] = 0;
+	DestroyerAttrib_MaxDelay[Ent] = 0.0;
+	
+	ReloadBoost[Ent] = false;
+	ReloadBoost_MaxCharge[Ent] = 0.0;
+	ReloadBoost_Charge[Ent] = 0.0;
+	ReloadBoost_MaxSpeed[Ent] = 0.0;
+	ReloadBoost_MaxClip[Ent] = 0;
+	ReloadBoost_DrainRate[Ent] = 0.0;
+	ReloadBoost_Delay[Ent] = 0.0;
+	ReloadBoost_MaxDelay[Ent] = 0.0;
+	
+	ExplodeOnReload[Ent] = false;
+	ExplodeOnReload_MaxDamage[Ent] = 0;
+	ExplodeOnReload_BlastRadius[Ent] = 0.0;
+	ExplodeOnReload_MaxFalloff[Ent] = 0.0;
+	ExplodeOnReload_MaxClip[Ent] = 0;
+	ExplodeOnReload_Exploded[Ent] = false;
+	ExplodeOnReload_Mode[Ent] = -1;
+	
+	AutoMatilda[Ent] = false;
+	AutoMatilda_MaxCharge[Ent] = 0.0;
+	AutoMatilda_ReserveCharge[Ent] = 0.0;
+	AutoMatilda_DamageMultiplier[Ent] = 0.0;
 }
 
 public TF2_OnConditionAdded(client, TFCond:cond)
