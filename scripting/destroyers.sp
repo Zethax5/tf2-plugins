@@ -1,3 +1,9 @@
+/*
+Due to this file no longer being able to compile, some of the works in this file will be moved to 'tendeadlyguns', to finish them up.
+I don't know why it can't compile, the file is just fucking stupid, because it could compile before.
+This is now being archived.
+*/
+
 #pragma semicolon 1
 #include <sourcemod>
 #include <sdktools>
@@ -12,6 +18,8 @@
 
 #define PLUGIN_VERSION "stable release 2"
 #define SLOTS_MAX 7
+
+#define SOUND_EXPLODE 			"weapons/explode1.wav"
 
 #define PARTICLE_EXPLODE		"ExplosionCore_Wall"
 
