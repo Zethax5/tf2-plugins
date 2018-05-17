@@ -340,7 +340,22 @@ public Action:DirectHitRewards_OnDirectHit(Handle:event, const String:name[], bo
 	if(DirectHitRewards[weapon])
 	{
 		//PrintToChat(attacker, "weapon check complete");
-		TF2Attrib_SetByName(weapon, "fire rate bonus", DirectHitRewards_Mult[weapon]);
+		
+		//originally this used attributes, but that shit don't work
+		//so I stole some code from someone else
+		//Many thanks to Machine for the code. He didn't let me use it, I sort of stole it.
+		//But either way many thanks to him. Here's to hoping this works!
+		new Float:m_flNextPrimaryAttack = GetEntPropFloat(weapon, Prop_Send, "m_flNextPrimaryAttack");
+		new Float:m_flNextSecondaryAttack = GetEntPropFloat(weapon, Prop_Send, "m_flNextSecondaryAttack");
+		new Float:m_flCycle = GetEntPropFloat(weapon, Prop_Send, "m_flCycle");
+		new m_bInReload = GetEntProp(weapon, Prop_Send, "m_bInReload");
+		//Getting the animation cycle at zero seems to be key here, however the scar and pistols weren't seem to be getting affected
+		if (m_flCycle == 0.000000 && m_bInReload < 1)
+		{
+			SetEntPropFloat(weapon, Prop_Send, "m_flPlaybackRate", DirectHitRewards_Mult[weapon]);
+			SetEntPropFloat(weapon, Prop_Send, "m_flNextPrimaryAttack", m_flNextPrimaryAttack - ((DirectHitRewards_Mult[weapon] - 1.0) / 2));
+			SetEntPropFloat(weapon, Prop_Send, "m_flNextSecondaryAttack", m_flNextSecondaryAttack - ((DirectHitRewards_Mult[weapon] - 1.0) / 2));
+		}
 		
 		if(DirectHitRewards_Reload[weapon] > 0)
 		{
@@ -365,7 +380,7 @@ static DirectHitRewards_OnTakeDamage(weapon, Float:damage, damagetype)
 	
 	new Float:flDmg = damage; //This little chunk is just to decipher if the damage dealt is critical
 	if((damagetype & DMG_CRIT) == DMG_CRIT)
-		flDmg *= 1 / 3;
+		flDmg *= 1.0 / 3.0;
 		
 	if(flDmg >= DirectHitRewards_Dmg[weapon]) //If the damage dealt is at least equal with the stated base damage of the weapon
 	{
@@ -479,7 +494,7 @@ static CurseOnkill_PreThink(client, weapon)
 	}
 	else
 	{
-		SetHudTextParams(-1.0, 0.5, 1.0, 255, 120, 120, 255);
+		SetHudTextParams(0.8, 0.7, 1.0, 255, 120, 120, 255);
 		ShowSyncHudText(client, hudText, "Curse: 100% | 100%\nKill an enemy in a crowd to curse them all!");
 	}
 	
@@ -684,7 +699,7 @@ Float:DestroyerAttrib_OnTakeDamage(victim, weapon, Float:damage)
 {
 	if (!DestroyerAttrib[weapon])return damage;
 	
-	if(DestroyerAttrib_Shot[weapon] > 0)
+	if(DestroyerAttrib_Shot[weapon] > 0 && DestroyerAttrib_Mult[weapon] > 1.0)
 	{
 		damage *= DestroyerAttrib_Mult[weapon];
 	}
@@ -813,7 +828,7 @@ public Action:TF2_CalcIsAttackCritical(client, weapon, String:weaponname[], &boo
 	if(DmgBuildsAccuracy[weapon] && DmgBuildsAccuracy_Charge[weapon] > 0.0)
 		CreateTimer(0.0, DmgBuildsAccuracy_DrainDelay, EntIndexToEntRef(weapon), TIMER_FLAG_NO_MAPCHANGE);
 		
-	if(AccuracyBoostSpeed[weapon] || DirectHitRewards[weapon])
+	if(AccuracyBoostSpeed[weapon])
 		CreateTimer(0.0, RemoveFireRateBonus, EntIndexToEntRef(weapon), TIMER_FLAG_NO_MAPCHANGE);
 		
 	if(AutoMatilda[weapon])
@@ -887,7 +902,7 @@ public Action:OnTakeDamage(victim, &attacker, &inflictor, &Float:damage, &damage
 		damage *= 0.65;
 		action = Plugin_Changed;
 	}
-	if(DestroyerAttrib[weapon]) //This section is for calling on the destroyer attribute's stock to increase damage
+	if(DestroyerAttrib[weapon] && DestroyerAttrib_Mult[weapon] > 1.0) //This section is for calling on the destroyer attribute's stock to increase damage
 	{ //It's basically where overkill damage from your last kill is added
 		damage = DestroyerAttrib_OnTakeDamage(victim, weapon, damage);
 		action = Plugin_Changed;
