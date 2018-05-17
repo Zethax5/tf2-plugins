@@ -34,7 +34,7 @@ The section where I define all the variables and functions
 //PARTICLES
 #define PARTICLE_SHIELD					"powerup_supernova_ready"
 #define PARTICLE_EXPLODE				"ExplosionCore_Wall"
-#define PARTICLE_CURSED					"yikes_
+#define PARTICLE_CURSED					"yikes_fx"
 
 public Plugin:myinfo = {
 	name = PLUGIN_NAME,
