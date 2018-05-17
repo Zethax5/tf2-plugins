@@ -209,6 +209,8 @@ new Float:AutoMatilda_DamageMultiplier[2049];
 
 
 new Float:LastTick[MAXPLAYERS + 1];
+new Handle:hudText;
+new Float:OriginalDamage[MAXPLAYERS + 1];
 
 public OnPluginStart() { //2-1
 
@@ -222,6 +224,7 @@ public OnPluginStart() { //2-1
 		OnClientPutInServer(i);
 		}
 	}
+	hudText = CreateHudSynchronizer();
 }
 
 public OnClientPutInServer(client)
@@ -456,6 +459,24 @@ static CurseOnkill_OnKill(attacker, victim, weapon)
 	}
 }
 
+static CurseOnkill_PreThink(client, weapon)
+{
+	if (!CurseOnkill[weapon])return;
+	
+	if(CurseOnkill_Charge[weapon] < CurseOnkill_MaxCharge[weapon])
+	{
+		SetHudTextParams(-1.0, 0.5, 1.0, 255, 255, 255, 255);
+		ShowSyncHudText(client, hudText, "Curse: %i%% | 100%", RoundFloat((CurseOnkill_Charge[weapon] / CurseOnkill_MaxCharge[weapon]) * 100.0));
+		CurseOnkill_Charge[weapon]++;
+	}
+	else
+	{
+		SetHudTextParams(-1.0, 0.5, 1.0, 255, 120, 120, 255);
+		ShowSyncHudText(client, hudText, "Curse: 100% | 100%\nKill an enemy in a crowd to curse them all!");
+	}
+	
+}
+
 
 
 //////////////////////////////////////////////////////////////////////
@@ -547,7 +568,7 @@ static DamageChargesUber_OnTakeDamageAlive(attacker, Float:damage)
 	
 	new Float:ubercharge = GetEntPropFloat(medigun, Prop_Send, "m_flChargeLevel");
 	new Float:gain = (damage / 100.0) * (DamageChargesUber_Self[medigun] * (1.0 - (DamageChargesUber_Minimum[medigun] * DamageChargesUber_Counter[medigun])));
-	if(gain < 0.0) gain = 0.0
+	if (gain < 0.0)gain = 0.0;
 	ubercharge += gain;
 	if(ubercharge > 1.0)
 		ubercharge = 1.0;
@@ -610,12 +631,10 @@ static DispenserUbercharge_PreThink(client)
 
 ///////////////////////////////////////////////////////////////////
 //Stuff for the attribute "buff ubercharge"
-static BuffUber_PreThink(client)
+static BuffUber_PreThink(client, weapon)
 {
 	if (!IsValidClient(client))return;
 	
-	new weapon = GetActiveWeapon(client);
-	if (weapon < 0 || weapon > 2048)return;
 	if (!BuffUber[weapon])return;
 	
 	new Float:ubercharge = GetEntPropFloat(weapon, Prop_Send, "m_flChargeLevel");
@@ -626,28 +645,28 @@ static BuffUber_PreThink(client)
 		new patient = GetMediGunPatient(client);
 		if(IsValidClient(patient))
 		{
-			if(!TF2_IsPlayerInCondition(patient, TFCond_Buffed)
+			if(!TF2_IsPlayerInCondition(patient, TFCond_Buffed))
 				TF2_AddCondition(patient, TFCond_Buffed, BuffUber_Dur[weapon]);
-			if(!TF2_IsPlayerInCondition(patient, TFCond:26)
+			if(!TF2_IsPlayerInCondition(patient, TFCond:26))
 				TF2_AddCondition(patient, TFCond:26, BuffUber_Dur[weapon]);
-			if(!TF2_IsPlayerInCondition(patient, TFCond:29)
+			if(!TF2_IsPlayerInCondition(patient, TFCond:29))
 				TF2_AddCondition(patient, TFCond:29, BuffUber_Dur[weapon]);
 		}
 		else
 		{
-			if(!TF2_IsPlayerInCondition(client, TFCond_Buffed)
+			if(!TF2_IsPlayerInCondition(client, TFCond_Buffed))
 				TF2_AddCondition(client, TFCond_Buffed, BuffUber_Dur[weapon]);
-			if(!TF2_IsPlayerInCondition(client, TFCond:26)
+			if(!TF2_IsPlayerInCondition(client, TFCond:26))
 				TF2_AddCondition(client, TFCond:26, BuffUber_Dur[weapon]);
-			if(!TF2_IsPlayerInCondition(client, TFCond:29)
+			if(!TF2_IsPlayerInCondition(client, TFCond:29))
 				TF2_AddCondition(client, TFCond:29, BuffUber_Dur[weapon]);
 		}
 		ubercharge -= BuffUber_Drain[weapon];
-		SetEntPropFloat(medigun, Prop_Send, "m_flChargeLevel", ubercharge);
+		SetEntPropFloat(weapon, Prop_Send, "m_flChargeLevel", ubercharge);
 	}
 	
 	if(ubercharge >= 0.99)
-		SetEntPropFloat(medigun, Prop_Send, "m_flChargeLevel", 0.99);
+		SetEntPropFloat(weapon, Prop_Send, "m_flChargeLevel", 0.99);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -711,7 +730,7 @@ stock ReloadBoost_PreThink(client, weapon)
 	}
 	
 	SetHudTextParams(-1.0, 0.5, 0.2, 255, 255, 255, 255);
-	ShowSyncHudText(client, CozyMeter_Display, "Boost: [%i%%] / [100%]", (ReloadBoost_Charge[weapon] / ReloadBoost_MaxCharge[weapon]) * 100.0);
+	ShowSyncHudText(client, hudText, "Boost: [%i%%] / [100%]", (ReloadBoost_Charge[weapon] / ReloadBoost_MaxCharge[weapon]) * 100.0);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -753,6 +772,11 @@ static AutoMatilda_PreThink(client, weapon)
 		AutoMatilda_ReserveCharge[weapon] += RoundToFloor(GetEntPropFloat(weapon, Prop_Send, "m_flChargedDamage")) * 0.6666666666;
 		if (AutoMatilda_ReserveCharge[weapon] > 100.0)AutoMatilda_ReserveCharge[weapon] = 100.0;
 		SetEntPropFloat(weapon, Prop_Send, "m_flChargedDamage", 0.0);
+	}
+	if(TF2_IsPlayerInCondition(client, TFCond:0))
+	{
+		SetHudTextParams(0.5, 0.5, 1.0, 255, 255, 255, 255);
+		ShowSyncHudText(client, hudText, "Additional Charge: [%i%%] / [100%]", RoundFloat(AutoMatilda_ReserveCharge[weapon]));
 	}
 	
 	TF2Attrib_SetByName(weapon, "sniper charge per sec", 1.0 + (AutoMatilda_MaxCharge[weapon] - (AutoMatilda_MaxCharge[weapon] * (AutoMatilda_ReserveCharge[weapon] / 100.0) * 1.5)));
@@ -928,9 +952,8 @@ public OnClientPreThink(client)
 		ExplodeOnReload_PreThink(client, weapon);
 		DestroyerAttrib_PreThink(weapon);
 		AutoMatilda_PreThink(client, weapon);
-		
-		if(CurseOnkill[weapon] && CurseOnkill_Charge[weapon] < CurseOnkill_MaxCharge[weapon])
-			CurseOnkill_Charge[weapon]++;
+		CurseOnkill_PreThink(client, weapon);
+		BuffUber_PreThink(client, weapon);
 		
 		LastTick[client] = GetEngineTime();
 	}
