@@ -34,6 +34,7 @@ The section where I define all the variables and functions
 //PARTICLES
 #define PARTICLE_SHIELD					"powerup_supernova_ready"
 #define PARTICLE_EXPLODE				"ExplosionCore_Wall"
+#define PARTICLE_CURSED					"yikes_
 
 public Plugin:myinfo = {
 	name = PLUGIN_NAME,
@@ -137,6 +138,7 @@ new Float:CurseOnkill_MaxCharge[2049];
 new bool:Cursed[MAXPLAYERS + 1];
 new Float:Cursed_DmgTaken[MAXPLAYERS + 1];
 new Cursed_Slot[MAXPLAYERS + 1];
+new Cursed_Particle[MAXPLAYERS + 1];
 
 //Values for the attribute "invigoration ubercharge"
 new bool:Invig[2049];
@@ -244,6 +246,7 @@ public OnMapStart()
 	PrecacheSound(SOUND_EXPLODE, true);
 	PrecacheParticle(PARTICLE_SHIELD);
 	PrecacheParticle(PARTICLE_EXPLODE);
+	PrecacheParticle(PARTICLE_CURSED);
 }
 
 /*
@@ -430,10 +433,13 @@ static CurseOnkill_OnKill(attacker, victim, weapon)
 					CurseOnkill_Dur[i] = CurseOnkill_Dur[weapon];
 					CurseOnkill_Delay[i] = GetEngineTime();
 					Cursed_Slot[i] = GetActiveWeapon(i);
+					CurseOnkill_Charge[weapon] = 0.0;
+					
 					TF2Attrib_SetByName(GetActiveWeapon(i), "health from healers reduced", 0.0);
 					TF2Attrib_SetByName(GetActiveWeapon(i), "health from packs decreased", 0.0);
+					
 					EmitSoundToClient(i, SOUND_PLAGUE);
-					CurseOnkill_Charge[weapon] = 0.0;
+					Cursed_Particle[i] = AttachParticle(i, PARTICLE_CURSED, -1.0);
 				}
 			}
 		}
@@ -450,6 +456,8 @@ static CurseOnkill_OnKill(attacker, victim, weapon)
 		CurseOnkill_Delay[victim] = 0.0;
 		Cursed_DmgTaken[victim] = 0.0;
 		Cursed_Slot[victim] = -1;
+		CreateTimer(0.0, RemoveParticle, Cursed_Particle[victim]);
+		Cursed_Particle[victim] = -1;
 	}
 	if(Cursed[attacker])
 	{
@@ -729,8 +737,8 @@ stock ReloadBoost_PreThink(client, weapon)
 		ReloadBoost_Delay[weapon] = GetEngineTime() + (ReloadBoost_MaxDelay[weapon] - 1.0);
 	}
 	
-	SetHudTextParams(-1.0, 0.5, 0.2, 255, 255, 255, 255);
-	ShowSyncHudText(client, hudText, "Boost: [%i%%] / [100%]", (ReloadBoost_Charge[weapon] / ReloadBoost_MaxCharge[weapon]) * 100.0);
+	SetHudTextParams(0.8, 0.7, 0.2, 255, 255, 255, 255);
+	ShowSyncHudText(client, hudText, "Boost: [%i%%] / [100%]", RoundFloat((ReloadBoost_Charge[weapon] / ReloadBoost_MaxCharge[weapon]) * 100.0));
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -812,7 +820,7 @@ public Action:TF2_CalcIsAttackCritical(client, weapon, String:weaponname[], &boo
 	{
 		AutoMatilda_DamageMultiplier[weapon] = (AutoMatilda_ReserveCharge[weapon] / 100) * 3;
 		AutoMatilda_ReserveCharge[weapon] = 0.0;
-		CreateTimer(0.1, AutoMatilda_ResetCharge, client, TIMER_FLAG_NO_MAPCHANGE);
+		CreateTimer(0.0, AutoMatilda_ResetCharge, client, TIMER_FLAG_NO_MAPCHANGE);
 	}
 	
 	return action;
@@ -966,12 +974,14 @@ public OnClientPreThink(client)
 			TF2Attrib_RemoveByName(Cursed_Slot[client], "health from healers reduced");
 			TF2Attrib_RemoveByName(Cursed_Slot[client], "health from packs decreased");
 			EmitSoundToClient(client, SOUND_BOLTHEAL);
+			CreateTimer(0.0, RemoveParticle, Cursed_Particle[client]);
 			
 			Cursed[client] = false;
 			CurseOnkill_Restore[client] = 0.0;
 			Cursed_DmgTaken[client] = 0.0;
 			CurseOnkill_Dur[client] = 0.0;
 			Cursed_Slot[client] = -1;
+			Cursed_Particle[client] = -1;
 		}
 	}
 	
