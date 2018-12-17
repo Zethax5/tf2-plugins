@@ -25,6 +25,21 @@ Last edit: Monday, December 17th, 2018
 =================
 */
 
+//Not sure if defining variables would go here, so just gonna roll with it. 
+
+public Action:CW3_OnAddAttribute()
+{
+  new Action:action;
+  
+  if(strEqual(attrib, "something"))
+  {
+    
+    action = Plugin_Handled;
+  }
+  
+  return action;
+}
+
 /*
 ===========================
 |                         |
