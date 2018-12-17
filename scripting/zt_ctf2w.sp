@@ -27,11 +27,14 @@ Last edit: Monday, December 17th, 2018
 
 //Not sure if defining variables would go here, so just gonna roll with it. 
 
-public Action:CW3_OnAddAttribute()
+public Action:CW3_OnAddAttribute(slot, client, const String:attrib[], const String:plugin[], const String:value[], bool:whileActive)
 {
+  if(plugin != "zt_ctf2w")
+    return Plugin_Continue;
+  
   new Action:action;
   
-  if(strEqual(attrib, "something"))
+  if(!StrEqual(attrib, "something"))
   {
     
     action = Plugin_Handled;
