@@ -2229,6 +2229,7 @@ stock Action:CustomBuffBanners_Think(client)
 					TF2_RemoveCondition(i, TFCond:26);
 					TF2_RemoveCondition(i, TFCond:29);
 					TF2_AddCondition(i, TFCond:113, 0.2, client);
+					TF2_AddCondition(i, TFCOnd:28, 0.2, client);
 				}
 			}
 		}
