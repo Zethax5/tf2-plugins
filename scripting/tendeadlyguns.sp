@@ -1191,7 +1191,7 @@ public Action:CW3_OnAddAttribute(slot, client, const String:attrib[], const Stri
 	{
 		if (weapon == -1)return Plugin_Continue;
 		
-		new String:values[4][10];
+		new String:values[5][10];
 		ExplodeString(value, " ", values, sizeof(values), sizeof(values[]));
 		
 		ReloadBoost_MaxCharge[weapon] = StringToFloat(values[0]);
@@ -1200,7 +1200,7 @@ public Action:CW3_OnAddAttribute(slot, client, const String:attrib[], const Stri
 		ReloadBoost_DrainRate[weapon] = StringToFloat(values[3]);
 		
 		ReloadBoost_Charge[weapon] = 0.0;
-		ReloadBoost_MaxClip[weapon] = GetClip_Weapon(weapon);
+		ReloadBoost_MaxClip[weapon] = StringToInt(values[4]);
 		
 		ReloadBoost[weapon] = true;
 		action = Plugin_Handled;
