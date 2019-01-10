@@ -241,8 +241,9 @@ stock HealPlayer(healer = -1, patient = -1, amount = 0, Float:overheal = 1.0)
 		if(health < maxhealth * overheal)
 		{
 			SetEntityHealth(patient, health + amount);
-			new Handle:healevent = CreateEvent("player_healonhit", true);
-			SetEventInt(healevent, "entindex", patient);
+			new Handle:healevent = CreateEvent("player_healed", true);
+			SetEventInt(healevent, "patient", patient);
+			SetEventInt(healevent, "healer", healer);
 			SetEventInt(healevent, "amount", amount);
 			FireEvent(healevent);
 		}
